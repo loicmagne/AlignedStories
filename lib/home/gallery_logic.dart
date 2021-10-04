@@ -1,9 +1,9 @@
 import 'dart:io';
-import 'package:alignedstories/home/home_page.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:alignedstories/home/models.dart';
 
 class GalleriesHandler {
   late List<Map<String,dynamic>> galleryList;
@@ -27,6 +27,7 @@ class GalleriesHandler {
       .doc(gid)
       .set({
         'name': gname,
+        'reference': null,
         'pictures': []
       });
   }
@@ -52,49 +53,61 @@ class GalleriesHandler {
     return galleryInfoList;
   }
 
-  static Future<List<String>> queryGalleryItems({required String uid, required String gid}) async {
+  static Future<Gallery> queryGalleryData({required String uid, required String gid}) async {
     DocumentSnapshot<Map<String,dynamic>> query = await FirebaseFirestore.instance
       .collection('users')
       .doc(uid)
       .collection('galleries')
       .doc(gid)
       .get();
-    List<String> items = query.data()!['pictures'].cast<String>();
-    return items;
+    return Gallery.fromFb(data: query.data()!, id: gid);
   }
 }
 
 class GalleryService extends ChangeNotifier{
-  late List<String> _imageList;
-  String? _galleryId;
+  Gallery _currentGallery = Gallery.empty();
 
   GalleryService();
 
-  String? get currentGalleryID => _galleryId;
-  List<String> get currentImageList => _imageList;
+  String get currentGalleryID => _currentGallery.id;
+  String? get currentGalleryRef => _currentGallery.ref;
+  List<String> get currentImageList => _currentGallery.imgs;
+
 
   Future<void> swapGallery({required String uid, required String gid}) async {
-    _galleryId = gid;
-    _imageList = await GalleriesHandler.queryGalleryItems(uid: uid, gid: gid);
+    _currentGallery = await GalleriesHandler.queryGalleryData(uid: uid, gid: gid);
     notifyListeners();
   }
 
-  Future<void> add({required String element, required String uid}) async {
-    _imageList.add(element);
+  Future<void> add({required String url, required String uid}) async {
+    _currentGallery.imgs.add(url);
     await FirebaseFirestore.instance
       .collection('users')
       .doc(uid)
       .collection('galleries')
-      .doc(_galleryId)
+      .doc(currentGalleryID)
       .update({
-        "pictures": FieldValue.arrayUnion([element])
+        "pictures": FieldValue.arrayUnion([url])
+    });
+    if (currentGalleryRef == null) {await changeRef(newRefURL: url, uid: uid);}
+    notifyListeners();
+  }
+
+  Future<void> changeRef({required String newRefURL, required String uid}) async {
+    _currentGallery.ref = newRefURL;
+    await FirebaseFirestore.instance
+      .collection('users')
+      .doc(uid)
+      .collection('galleries')
+      .doc(currentGalleryID)
+      .update({
+        "reference": newRefURL
     });
     notifyListeners();
   }
 
-  static Future<String?> upload({required String uid, required String gid, required XFile image}) async { 
+  static Future<String?> upload({required String uid, required String gid, required XFile image, required String iid}) async { 
     try {
-      String iid = uuid.v4();
       String fbStoragePath = "$uid/$gid/$iid.jpg";
       await FirebaseStorage.instance
         .ref(fbStoragePath)

@@ -82,7 +82,7 @@ class _HomeState extends State<Home> {
       appBar: AppBar(
         title: const Text('AlignedStories'),
       ),
-      body: bodyWidget,
+      body: SafeArea(child: bodyWidget),
       floatingActionButton: AddImageButton(visibility: fabVisibility),
       drawer: Drawer(
         child: ListView(
@@ -93,10 +93,8 @@ class _HomeState extends State<Home> {
               shrinkWrap: true,
               itemCount: context.read<GalleriesHandler>().nbGalleries,
               itemBuilder: (BuildContext context, int idx) {
-                final bool isSelected = (context.read<GalleryService>().currentGalleryID != null) ? 
-                                        (context.read<GalleryService>().currentGalleryID == 
-                                         context.read<GalleriesHandler>().galleryList[idx]['id']) :
-                                        (false);
+                final bool isSelected = (context.read<GalleryService>().currentGalleryID == 
+                                         context.read<GalleriesHandler>().galleryList[idx]['id']);
                 return Container(
                   color: (isSelected && !accountFocus) ? Colors.lightBlue.shade100 : null,
                   child: ListTile(
